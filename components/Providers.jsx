@@ -1,0 +1,61 @@
+'use client'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { getWCGames, getWCTeams, getWCGroups, getWCStadiums, matchStatus } from '@/utils/api'
+import MatchDetail from './MatchDetail'
+
+const WCCtx = createContext(null)
+export const useWC = () => useContext(WCCtx)
+
+export default function Providers({ children }) {
+  const [teams, setTeams]     = useState([])
+  const [games, setGames]     = useState([])
+  const [teamsMap, setTeamsMap] = useState({})
+  const [groups, setGroups]   = useState([])
+  const [standingsMap, setStandingsMap] = useState({})
+  const [stadiumsMap, setStadiumsMap]   = useState({})
+  const [selected, setSelected] = useState(null)
+
+  const load = useCallback(async () => {
+    try {
+      const [t, g, gr, st] = await Promise.all([
+        getWCTeams(), getWCGames(), getWCGroups(), getWCStadiums(),
+      ])
+      setTeams(t)
+      setGames(g)
+      setGroups(gr)
+      const m = {}
+      t.forEach(tm => { m[tm.id] = tm })
+      setTeamsMap(m)
+      const sm = {}
+      gr.forEach(group => {
+        (group.teams ?? []).forEach(row => { sm[row.team_id] = { ...row, group: group.name } })
+      })
+      setStandingsMap(sm)
+      const stm = {}
+      st.forEach(s => { stm[s.id] = s })
+      setStadiumsMap(stm)
+    } catch (e) {
+      console.error('WC data:', e)
+    }
+  }, [])
+
+  useEffect(() => {
+    load()
+    const iv = setInterval(load, 30000)
+    return () => clearInterval(iv)
+  }, [load])
+
+  useEffect(() => {
+    document.body.style.overflow = selected ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [selected])
+
+  const liveCount = games.filter(g => matchStatus(g) === 'live').length
+
+  return (
+    <WCCtx.Provider value={{ teams, games, teamsMap, groups, standingsMap, stadiumsMap, selected, setSelected, liveCount, reload: load }}>
+      {children}
+      {selected && <MatchDetail game={selected} onClose={() => setSelected(null)} />}
+    </WCCtx.Provider>
+  )
+}

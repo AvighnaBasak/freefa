@@ -1,0 +1,70 @@
+.page { min-height: 100dvh; }
+
+/* ── Hero stage wrapper — this is what shrinks on scroll ── */
+.stage {
+  --shrink: 0;
+  position: relative;
+  z-index: 10;
+  /* Scale down slightly (minimise inwards) as user scrolls */
+  transform: scale(calc(1 - var(--shrink) * 0.05));
+  transform-origin: center center;
+  overflow: hidden;
+  transition: transform 0.1s cubic-bezier(0.215, 0.61, 0.355, 1);
+  will-change: transform;
+}
+
+/* ── Loading placeholder (matches hero height) ── */
+.loading {
+  height: 100dvh;
+  min-height: 480px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 16px; color: var(--text2); font-size: 13px;
+}
+.spinner {
+  width: 34px; height: 34px;
+  border: 3px solid rgba(255,255,255,0.06);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Below-the-fold content ── */
+.below {
+  max-width: 1640px; margin: 0 auto;
+  padding: 32px 20px 72px;
+  display: flex; flex-direction: column; gap: 40px;
+  /* Content starts right after hero fades — no extra gap needed */
+  position: relative; z-index: 5;
+  background: var(--bg);
+}
+
+/* Stats strip — no border, depth from shadow */
+.statsStrip {
+  display: flex; align-items: center; justify-content: space-around;
+  gap: 8px; padding: 22px 28px;
+  border-radius: 20px; flex-wrap: wrap;
+  background: linear-gradient(145deg, rgba(16,17,24,0.9) 0%, rgba(10,11,16,0.95) 100%);
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.45),
+    0 4px 16px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    inset 0 -1px 0 rgba(0,0,0,0.2);
+}
+.stripItem { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 84px; }
+.stripNum {
+  font-family: var(--font-num); font-size: 34px; font-weight: 400;
+  line-height: 1; font-variant-numeric: tabular-nums;
+}
+.stripRed { color: var(--red); text-shadow: 0 0 20px rgba(232,39,58,0.5); }
+.stripLabel { font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); }
+.stripDivider { width: 1px; height: 32px; background: rgba(255,255,255,0.06); flex-shrink: 0; }
+
+/* Matches grid */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; }
+
+@media (max-width: 700px) {
+  .stripDivider { display: none; }
+  .below { padding: 24px 14px 56px; gap: 28px; }
+}

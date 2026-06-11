@@ -1,0 +1,163 @@
+/* ══ Opening Ceremony banner ══ */
+.banner {
+  position: relative;
+  border-radius: 22px;
+  overflow: hidden;
+  cursor: pointer;
+  background: linear-gradient(160deg, #10121b 0%, #080a0f 100%);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,0.55),
+    0 6px 22px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: transform 0.22s ease, box-shadow 0.22s ease;
+}
+.banner:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 32px 90px rgba(0,0,0,0.65),
+    0 10px 30px rgba(232,39,58,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+}
+.bg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center 30%;
+  opacity: 0.85;
+}
+.shade {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(95deg, rgba(6,8,13,0.96) 18%, rgba(6,8,13,0.72) 48%, rgba(6,8,13,0.18) 100%),
+    linear-gradient(to top, rgba(6,8,13,0.85), transparent 55%);
+}
+.inner {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  padding: 30px 34px 28px;
+  min-height: 200px;
+  justify-content: center;
+}
+.kicker {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--font-h);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--gold);
+}
+.kicker svg { width: 13px; height: 13px; }
+.title {
+  font-family: var(--font-display);
+  font-size: clamp(30px, 5vw, 52px);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text);
+  text-shadow: 0 6px 30px rgba(0,0,0,0.6);
+}
+.sub {
+  font-size: 13px; font-weight: 500;
+  color: var(--text2);
+  max-width: 520px;
+}
+.watchBtn {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px;
+  background: var(--red); color: #fff;
+  font-size: 13px; font-weight: 800;
+  letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 11px 24px; border-radius: 999px;
+  transition: filter 0.18s, transform 0.18s, box-shadow 0.18s;
+  box-shadow: 0 6px 26px rgba(232,39,58,0.45), inset 0 1px 0 rgba(255,255,255,0.22);
+}
+.watchBtn svg { width: 12px; height: 12px; }
+.watchBtn:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 10px 34px rgba(232,39,58,0.55); }
+
+/* ══ Watch overlay (no stats — just the show) ══ */
+.overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0);
+  backdrop-filter: blur(0px);
+  overflow-y: auto;
+  display: flex; align-items: safe center; justify-content: center;
+  padding: 72px 16px 40px;
+  transition: background 0.3s, backdrop-filter 0.3s;
+}
+.overlayVisible {
+  background: rgba(2,3,6,0.78);
+  backdrop-filter: blur(14px);
+}
+.panel {
+  width: 100%; max-width: 980px;
+  background: linear-gradient(160deg, #0d0f16 0%, #080a0f 100%);
+  border-radius: 26px;
+  overflow: hidden;
+  position: relative;
+  opacity: 0;
+  transform: scale(0.94) translateY(24px);
+  transition: opacity 0.32s ease, transform 0.32s ease;
+  box-shadow:
+    0 48px 140px rgba(0,0,0,0.8),
+    0 12px 40px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.panelVisible { opacity: 1; transform: scale(1) translateY(0); }
+
+.panelBg { position: absolute; inset: 0; overflow: hidden; }
+.panelBgImg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  object-fit: cover; object-position: center 25%;
+  opacity: 0.3;
+}
+.panelBgShade {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(8,10,15,0.55) 0%, rgba(8,10,15,0.92) 55%, #080a0f 100%);
+}
+
+.header {
+  position: relative; z-index: 2;
+  display: flex; align-items: center; gap: 14px;
+  padding: 18px 24px;
+}
+.backBtn {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text2);
+  padding: 9px 16px; border-radius: 999px;
+  background: rgba(255,255,255,0.05);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07);
+  transition: color 0.18s, background 0.18s;
+}
+.backBtn svg { width: 15px; height: 15px; }
+.backBtn:hover { color: var(--text); background: rgba(255,255,255,0.09); }
+
+.headerMeta { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.eventBadge {
+  background: rgba(244,161,51,0.14); color: var(--gold);
+  font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 5px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.headerTitle {
+  font-size: 12px; font-weight: 600; color: var(--text2);
+  letter-spacing: 0.04em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.playerSection { position: relative; z-index: 2; padding: 0 24px 20px; }
+.playerTools {
+  display: flex; align-items: flex-start; gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.playerTools > :last-child { flex: 1; min-width: 260px; }
+
+@media (max-width: 700px) {
+  .inner { padding: 24px 22px; min-height: 170px; }
+  .sub { font-size: 12px; }
+  .overlay { padding: 56px 8px 24px; }
+  .header { padding: 14px 14px; }
+  .headerTitle { display: none; }
+  .playerSection { padding: 0 12px 14px; }
+}
