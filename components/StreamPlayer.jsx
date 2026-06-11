@@ -13,31 +13,36 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
   const playerRef = useRef(null)
   const iframeRef = useRef(null)
 
-  // Fetch streams for first available source
+  // Fetch streams from ALL sources and merge them, so viewers can switch
+  // players — some embeds don't play on every browser (e.g. iOS WebKit).
   useEffect(() => {
     if (!sources?.length) { setError('No stream sources available.'); setLoading(false); return }
-    setLoading(true); setError(null)
-
-    const trySource = async (i, blocked) => {
-      if (i >= sources.length) {
-        // API unreachable (not just "no streams yet") — fall back to
-        // building embed URLs directly; the embed domain usually loads
-        // even on networks that block the streamed.pk API.
-        if (blocked) { setStreams(syntheticStreams(sources)); setLoading(false); return }
-        setError('No working streams found right now.'); setLoading(false); return
-      }
-      try {
-        const data = await getStreams(sources[i].source, sources[i].id)
-        if (data?.length) { setStreams(data); setLoading(false) }
-        else trySource(i + 1, blocked)
-      } catch (e) {
+    setLoading(true); setError(null); setActiveIdx(0)
+    let stale = false
+    ;(async () => {
+      const results = await Promise.allSettled(
+        sources.map(s => getStreams(s.source, s.id))
+      )
+      if (stale) return
+      const merged = []
+      let blocked = false
+      for (const r of results) {
+        if (r.status === 'fulfilled' && Array.isArray(r.value)) merged.push(...r.value)
         // HTTP 4xx = the API answered (source doesn't exist); anything
         // else means we couldn't reach the API at all
-        const answered = /HTTP 4\d\d/.test(String(e?.message))
-        trySource(i + 1, blocked || !answered)
+        else if (r.status === 'rejected' && !/HTTP 4\d\d/.test(String(r.reason?.message))) blocked = true
       }
-    }
-    trySource(0, false)
+      const seen = new Set()
+      const unique = merged.filter(s => s?.embedUrl && !seen.has(s.embedUrl) && seen.add(s.embedUrl))
+      if (unique.length) setStreams(unique)
+      // API unreachable (not just "no streams yet") — build the embed
+      // URLs directly; the embed domain usually loads even on networks
+      // that block the streamed.pk API.
+      else if (blocked) setStreams(syntheticStreams(sources))
+      else setError('No working streams found right now.')
+      setLoading(false)
+    })()
+    return () => { stale = true }
   }, [sources])
 
   // Fullscreen listener
@@ -67,36 +72,39 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
   }, [toggleFullscreen])
 
   const activeStream = streams[activeIdx]
+  const multiSource = new Set(streams.map(s => s.source)).size > 1
 
   return (
-    <div className={styles.playerWrap} ref={playerRef}>
+    <div className={styles.outer}>
+      {/* Video area — only the embed lives here, so our buttons never
+          cover the embed player's own controls */}
+      <div className={styles.playerWrap} ref={playerRef}>
 
-      {/* Loading */}
-      {loading && (
-        <div className={styles.state}>
-          <div className={styles.spinner}/>
-          <span>Loading stream…</span>
-        </div>
-      )}
-
-      {/* Error */}
-      {!loading && error && (
-        <div className={styles.state}>
-          <div className={styles.errorIcon}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 32, height: 32, color: 'var(--text3)'}}>
-              <path d="M12 2a10 10 0 0 1 10 10M12 6a6 6 0 0 1 6 6M12 10a2 2 0 0 1 2 2" strokeLinecap="round"/>
-              <circle cx="12" cy="18" r="1"/>
-              <path d="M12 14v3M3 18h18" strokeLinecap="round"/>
-            </svg>
+        {/* Loading */}
+        {loading && (
+          <div className={styles.state}>
+            <div className={styles.spinner}/>
+            <span>Loading stream…</span>
           </div>
-          <span className={styles.errorMsg}>{error}</span>
-          <p className={styles.errorSub}>Check back when the match goes live.</p>
-        </div>
-      )}
+        )}
 
-      {/* Player */}
-      {!loading && !error && activeStream && (
-        <>
+        {/* Error */}
+        {!loading && error && (
+          <div className={styles.state}>
+            <div className={styles.errorIcon}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{width: 32, height: 32, color: 'var(--text3)'}}>
+                <path d="M12 2a10 10 0 0 1 10 10M12 6a6 6 0 0 1 6 6M12 10a2 2 0 0 1 2 2" strokeLinecap="round"/>
+                <circle cx="12" cy="18" r="1"/>
+                <path d="M12 14v3M3 18h18" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <span className={styles.errorMsg}>{error}</span>
+            <p className={styles.errorSub}>Check back when the match goes live.</p>
+          </div>
+        )}
+
+        {/* Player */}
+        {!loading && !error && activeStream && (
           <iframe
             ref={iframeRef}
             src={activeStream.embedUrl}
@@ -107,66 +115,69 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
             frameBorder="0"
             title={matchTitle}
           />
+        )}
+      </div>
 
-          {/* Controls bar */}
-          <div className={styles.controls}>
-            <div className={styles.controlsLeft}>
-              <div className="live-badge"><div className="live-dot"/>LIVE</div>
-              <span className={styles.matchTitle}>{matchTitle}</span>
-            </div>
-
-            {/* Stream quality selector */}
-            {streams.length > 1 && (
-              <div className={styles.streamPicker}>
-                {streams.map((s, i) => (
-                  <button
-                    key={i}
-                    className={`${styles.streamBtn} ${i === activeIdx ? styles.streamBtnActive : ''}`}
-                    onClick={() => setActiveIdx(i)}
-                  >
-                    {s.language ?? `Stream ${s.streamNo}`}
-                    {s.hd && <span className={styles.hd}>HD</span>}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className={styles.controlsRight}>
-              {/* Cast button */}
-              <button className={styles.iconBtn} onClick={handleCast} title="Cast to TV">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
-                  <line x1="2" y1="20" x2="2.01" y2="20"/>
-                </svg>
-              </button>
-
-              {/* Fullscreen */}
-              <button className={styles.iconBtn} onClick={toggleFullscreen} title="Fullscreen">
-                {isFullscreen ? (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                  </svg>
-                ) : (
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                  </svg>
-                )}
-              </button>
-            </div>
+      {/* Controls bar — sits under the video on every screen size */}
+      {!loading && !error && activeStream && (
+        <div className={styles.controls}>
+          <div className={styles.controlsLeft}>
+            <div className="live-badge"><div className="live-dot"/>LIVE</div>
+            <span className={styles.matchTitle}>{matchTitle}</span>
           </div>
 
-          {/* Cast tooltip */}
-          {showCast && (
-            <div className={styles.castTip}>
-              <strong>Watch on your TV:</strong>
-              <br/>• <b>Android:</b> Chrome ⋮ menu → Cast, or swipe down → Smart View / Screen Cast (Miracast)
-              <br/>• <b>iPhone / iPad / Mac:</b> Control Centre → Screen Mirroring (AirPlay)
-              <br/>• <b>Windows:</b> Win+K → pick your Miracast display
-              <br/>Go fullscreen first for the best picture.
-              <button className={styles.castClose} onClick={() => setShowCast(false)}>✕</button>
+          {/* Stream selector (all sources merged) */}
+          {streams.length > 1 && (
+            <div className={styles.streamPicker}>
+              {streams.map((s, i) => (
+                <button
+                  key={i}
+                  className={`${styles.streamBtn} ${i === activeIdx ? styles.streamBtnActive : ''}`}
+                  onClick={() => setActiveIdx(i)}
+                >
+                  {multiSource && s.source ? `${s.source} · ` : ''}
+                  {s.language ?? `Stream ${s.streamNo}`}
+                  {s.hd && <span className={styles.hd}>HD</span>}
+                </button>
+              ))}
             </div>
           )}
-        </>
+
+          <div className={styles.controlsRight}>
+            {/* Cast button */}
+            <button className={styles.iconBtn} onClick={handleCast} title="Cast to TV">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+                <line x1="2" y1="20" x2="2.01" y2="20"/>
+              </svg>
+            </button>
+
+            {/* Fullscreen */}
+            <button className={styles.iconBtn} onClick={toggleFullscreen} title="Fullscreen">
+              {isFullscreen ? (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Cast tooltip */}
+      {showCast && (
+        <div className={styles.castTip}>
+          <strong>Watch on your TV:</strong>
+          <br/>• <b>Android:</b> Chrome ⋮ menu → Cast, or swipe down → Smart View / Screen Cast (Miracast)
+          <br/>• <b>iPhone / iPad / Mac:</b> Control Centre → Screen Mirroring (AirPlay)
+          <br/>• <b>Windows:</b> Win+K → pick your Miracast display
+          <br/>Go fullscreen first for the best picture.
+          <button className={styles.castClose} onClick={() => setShowCast(false)}>✕</button>
+        </div>
       )}
     </div>
   )
