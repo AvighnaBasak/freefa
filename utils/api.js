@@ -36,6 +36,23 @@ export function getBadgeUrl(badge) {
   return `https://streamed.pk/api/images/badge/${badge}.webp`
 }
 
+// Last-resort streams when the stream API is unreachable on every path
+// (some ISPs block streamed.pk outright while the embed player domain
+// still loads). Embed URLs follow a fixed pattern, so build them directly.
+const STREAM_EMBED_BASE = 'https://embed.st/embed'
+export function syntheticStreams(sources, perSource = 3) {
+  return (sources ?? []).slice(0, 2).flatMap(({ source, id }) =>
+    Array.from({ length: perSource }, (_, i) => ({
+      id,
+      source,
+      streamNo: i + 1,
+      hd: false,
+      language: `${source} · stream ${i + 1}`,
+      embedUrl: `${STREAM_EMBED_BASE}/${source}/${id}/${i + 1}`,
+    }))
+  )
+}
+
 // ── Opening Ceremony (streamed.pk PPV event) ──────────────
 export const CEREMONY_ID = 'ppv-fifa-world-cup-opening-ceremony-mexico'
 const CEREMONY_THUMB_PATH = '/images/proxy/GwZg7AZpYEZgHCAjAJgCzuAQ1sFKBWSYAU2DFLABM8E9g1gDCFJMd46Tp51jwywYAE50IGCBpYQ8YDSohhIkCGAQQKbCOwqQAYxBlE0koeCIap2cP37ShkNKyb+YQdoJaXhYElx7NITdWCG0yTU9ZMDc1UjUgA.webp'

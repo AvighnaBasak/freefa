@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { getStreams } from '@/utils/api'
+import { getStreams, syntheticStreams } from '@/utils/api'
 import styles from './StreamPlayer.module.css'
 
 export default function StreamPlayer({ sources = [], matchTitle = '' }) {
@@ -18,15 +18,26 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
     if (!sources?.length) { setError('No stream sources available.'); setLoading(false); return }
     setLoading(true); setError(null)
 
-    const trySource = async (i) => {
-      if (i >= sources.length) { setError('No working streams found right now.'); setLoading(false); return }
+    const trySource = async (i, blocked) => {
+      if (i >= sources.length) {
+        // API unreachable (not just "no streams yet") — fall back to
+        // building embed URLs directly; the embed domain usually loads
+        // even on networks that block the streamed.pk API.
+        if (blocked) { setStreams(syntheticStreams(sources)); setLoading(false); return }
+        setError('No working streams found right now.'); setLoading(false); return
+      }
       try {
         const data = await getStreams(sources[i].source, sources[i].id)
         if (data?.length) { setStreams(data); setLoading(false) }
-        else trySource(i + 1)
-      } catch { trySource(i + 1) }
+        else trySource(i + 1, blocked)
+      } catch (e) {
+        // HTTP 4xx = the API answered (source doesn't exist); anything
+        // else means we couldn't reach the API at all
+        const answered = /HTTP 4\d\d/.test(String(e?.message))
+        trySource(i + 1, blocked || !answered)
+      }
     }
-    trySource(0)
+    trySource(0, false)
   }, [sources])
 
   // Fullscreen listener
