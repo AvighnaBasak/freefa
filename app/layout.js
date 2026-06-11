@@ -1,6 +1,7 @@
 import './globals.css'
 import Providers from '@/components/Providers'
 import Navbar from '@/components/Navbar'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata = {
   title: 'FREEFA — World Cup 2026 Live Hub',
@@ -17,6 +18,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
         </Providers>
+        <Analytics />
       </body>
     </html>
   )
