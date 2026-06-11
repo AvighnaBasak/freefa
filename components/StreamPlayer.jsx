@@ -10,8 +10,18 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
   const [activeIdx, setActiveIdx]   = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showCast, setShowCast]     = useState(false)
+  const [isIOS, setIsIOS]           = useState(false)
   const playerRef = useRef(null)
   const iframeRef = useRef(null)
+
+  // iOS Safari (all iOS browsers) can't run the embeds' MSE-based player —
+  // surface a "open directly" hint so viewers can escape the iframe
+  useEffect(() => {
+    const ua = navigator.userAgent || ''
+    const ios = /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) // iPadOS
+    setIsIOS(ios)
+  }, [])
 
   // Fetch streams from ALL sources and merge them, so viewers can switch
   // players — some embeds don't play on every browser (e.g. iOS WebKit).
@@ -116,6 +126,23 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
             title={matchTitle}
           />
         )}
+
+        {/* iOS players often refuse to run inside the iframe — overlay a
+            tap-to-open hint that launches the stream full-tab */}
+        {!loading && !error && activeStream && isIOS && (
+          <a
+            className={styles.iosHint}
+            href={activeStream.embedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6">
+              <path d="M14 4h6m0 0v6m0-6L10 14M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>
+            </svg>
+            <strong>Not playing on iPhone?</strong>
+            <span>Tap to open the stream in Safari, or try another stream below.</span>
+          </a>
+        )}
       </div>
 
       {/* Controls bar — sits under the video on every screen size */}
@@ -144,6 +171,20 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
           )}
 
           <div className={styles.controlsRight}>
+            {/* Open the stream in a full browser tab — best escape hatch
+                when the embed won't play inside the iframe (esp. iOS) */}
+            <a
+              className={styles.iconBtn}
+              href={activeStream.embedUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open stream in new tab"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M14 4h6m0 0v6m0-6L10 14M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>
+              </svg>
+            </a>
+
             {/* Cast button */}
             <button className={styles.iconBtn} onClick={handleCast} title="Cast to TV">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
