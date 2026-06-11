@@ -145,15 +145,56 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
         )}
       </div>
 
-      {/* Controls bar — sits under the video on every screen size */}
+      {/* Controls — stacked rows so nothing overlaps at any width */}
       {!loading && !error && activeStream && (
         <div className={styles.controls}>
-          <div className={styles.controlsLeft}>
-            <div className="live-badge"><div className="live-dot"/>LIVE</div>
-            <span className={styles.matchTitle}>{matchTitle}</span>
+
+          {/* Row 1: status + action buttons */}
+          <div className={styles.controlsTop}>
+            <div className={styles.controlsLeft}>
+              <div className="live-badge"><div className="live-dot"/>LIVE</div>
+              <span className={styles.matchTitle}>{matchTitle}</span>
+            </div>
+
+            <div className={styles.controlsRight}>
+              {/* Open the stream in a full browser tab — best escape hatch
+                  when the embed won't play inside the iframe (esp. iOS) */}
+              <a
+                className={`${styles.iconBtn} ${styles.iconBtnOpen}`}
+                href={activeStream.embedUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Open stream in new tab"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M14 4h6m0 0v6m0-6L10 14M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>
+                </svg>
+              </a>
+
+              {/* Cast button */}
+              <button className={styles.iconBtn} onClick={handleCast} title="Cast to TV">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
+                  <line x1="2" y1="20" x2="2.01" y2="20"/>
+                </svg>
+              </button>
+
+              {/* Fullscreen */}
+              <button className={styles.iconBtn} onClick={toggleFullscreen} title="Fullscreen">
+                {isFullscreen ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
-          {/* Stream selector (all sources merged) */}
+          {/* Row 2: stream selector (own row, scrolls sideways if long) */}
           {streams.length > 1 && (
             <div className={styles.streamPicker}>
               {streams.map((s, i) => (
@@ -170,42 +211,17 @@ export default function StreamPlayer({ sources = [], matchTitle = '' }) {
             </div>
           )}
 
-          <div className={styles.controlsRight}>
-            {/* Open the stream in a full browser tab — best escape hatch
-                when the embed won't play inside the iframe (esp. iOS) */}
-            <a
-              className={styles.iconBtn}
-              href={activeStream.embedUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open stream in new tab"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M14 4h6m0 0v6m0-6L10 14M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>
-              </svg>
-            </a>
-
-            {/* Cast button */}
-            <button className={styles.iconBtn} onClick={handleCast} title="Cast to TV">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/>
-                <line x1="2" y1="20" x2="2.01" y2="20"/>
-              </svg>
-            </button>
-
-            {/* Fullscreen */}
-            <button className={styles.iconBtn} onClick={toggleFullscreen} title="Fullscreen">
-              {isFullscreen ? (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-                </svg>
-              )}
-            </button>
-          </div>
+          {/* Disclaimer: how to recover from a dead stream */}
+          <p className={styles.disclaimer}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Stream not working? Switch streams above, or press the
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={styles.inlineIcon} aria-hidden="true">
+              <path d="M14 4h6m0 0v6m0-6L10 14M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>
+            </svg>
+            button to open it in a new tab.
+          </p>
         </div>
       )}
 

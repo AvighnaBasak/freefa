@@ -55,20 +55,34 @@
 .errorSub { font-size: 12px; color: var(--text3); }
 
 /* Controls — separate bar under the video so the embed's own player
-   buttons are never covered */
+   buttons are never covered. Stacked rows so nothing overlaps. */
 .controls {
-  display: flex; align-items: center; gap: 12px;
-  flex-wrap: wrap;
-  padding: 10px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px 14px;
   border-radius: 14px;
   background: rgba(255,255,255,0.04);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 24px rgba(0,0,0,0.35);
 }
 
-.controlsLeft { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.controlsTop {
+  display: flex; align-items: center; gap: 12px;
+  justify-content: space-between;
+}
+.controlsLeft { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .matchTitle { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.streamPicker { display: flex; gap: 6px; flex-wrap: wrap; }
+/* Stream picker on its own row — scrolls horizontally instead of wrapping
+   into the LIVE badge */
+.streamPicker {
+  display: flex; gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.streamPicker::-webkit-scrollbar { height: 5px; }
+.streamPicker::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.18); border-radius: 3px; }
+.streamBtn { flex-shrink: 0; white-space: nowrap; }
 .streamBtn {
   background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.15);
   color: var(--text2); font-size: 11px; font-weight: 600;
@@ -85,7 +99,7 @@
   padding: 1px 4px; border-radius: 2px;
 }
 
-.controlsRight { display: flex; align-items: center; gap: 8px; }
+.controlsRight { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .iconBtn {
   width: 34px; height: 34px;
   border-radius: 6px;
@@ -96,6 +110,20 @@
 }
 .iconBtn svg { width: 16px; height: 16px; }
 .iconBtn:hover { background: rgba(255,255,255,0.2); color: var(--text); }
+/* Highlight the "open in tab" escape hatch so it's easy to find */
+.iconBtnOpen { background: rgba(244,161,51,0.16); border-color: rgba(244,161,51,0.4); color: var(--gold); }
+.iconBtnOpen:hover { background: rgba(244,161,51,0.28); color: var(--gold); }
+
+/* Disclaimer line */
+.disclaimer {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+  font-size: 11.5px; line-height: 1.5; color: var(--text2);
+}
+.disclaimer > svg:first-child { width: 14px; height: 14px; color: var(--gold); flex-shrink: 0; }
+.inlineIcon {
+  width: 14px; height: 14px; color: var(--gold);
+  vertical-align: middle; margin: 0 1px;
+}
 
 /* Cast tip */
 .castTip {
