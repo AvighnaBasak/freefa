@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useWC } from './Providers'
 import MatchCard from './MatchCard'
 import CeremonyCard from './Ceremony'
@@ -22,17 +22,30 @@ const SearchIcon = () => (
 )
 
 const isToday = g => {
-  const d = parseMatchDate(g.local_date)
+  const d = parseMatchDate(g.local_date, g.stadium_id)
   if (!d) return false
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const tom = new Date(today); tom.setDate(tom.getDate() + 1)
   return d >= today && d < tom
 }
 
+// Short local timezone label, e.g. "IST" or "GMT+5:30", read once on the client
+function useTzLabel() {
+  const [label, setLabel] = useState('')
+  useEffect(() => {
+    try {
+      const parts = new Intl.DateTimeFormat([], { timeZoneName: 'short' }).formatToParts(new Date())
+      setLabel(parts.find(p => p.type === 'timeZoneName')?.value ?? '')
+    } catch { /* leave blank */ }
+  }, [])
+  return label
+}
+
 export default function SchedulePage() {
   const { games, teamsMap, setSelected } = useWC()
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const tzLabel = useTzLabel()
 
   const counts = useMemo(() => ({
     all:      games.length,
@@ -64,7 +77,7 @@ export default function SchedulePage() {
   const byDate = useMemo(() => {
     const map = new Map()
     filtered.forEach(g => {
-      const d = parseMatchDate(g.local_date)
+      const d = parseMatchDate(g.local_date, g.stadium_id)
       const key = d ? d.toDateString() : 'TBD'
       if (!map.has(key)) map.set(key, { date: d, games: [] })
       map.get(key).games.push(g)
@@ -90,6 +103,12 @@ export default function SchedulePage() {
           <h1 className="page-title">Match <em>Schedule</em></h1>
           <p className="page-sub">
             {games.length || 104} matches · Group Stage to the Final · USA, Mexico &amp; Canada
+          </p>
+          <p className={styles.tzNote}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            All kick-off times shown in your local time{tzLabel ? ` (${tzLabel})` : ''}
           </p>
         </div>
       </div>

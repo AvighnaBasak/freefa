@@ -37,7 +37,7 @@ export default function MatchDetail({ game, onClose }) {
   const status   = matchStatus(game)
   const hIso     = homeTeam?.iso2 ?? ''
   const aIso     = awayTeam?.iso2 ?? ''
-  const date     = parseMatchDate(game?.local_date)
+  const date     = parseMatchDate(game?.local_date, game?.stadium_id)
   // Squads: curated file first, dynamic TheSportsDB roster as fallback
   const [dynRosters, setDynRosters] = useState({ home: [], away: [] })
   useEffect(() => {

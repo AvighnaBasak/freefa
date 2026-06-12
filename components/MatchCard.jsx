@@ -7,7 +7,7 @@ export default function MatchCard({ game, homeTeam, awayTeam, onClick }) {
   const [errH, setErrH] = useState(false)
   const [errA, setErrA] = useState(false)
   const status = matchStatus(game)
-  const date   = parseMatchDate(game?.local_date)
+  const date   = parseMatchDate(game?.local_date, game?.stadium_id)
   const hFlag  = getFlagUrl(homeTeam?.iso2, 80)
   const aFlag  = getFlagUrl(awayTeam?.iso2, 80)
 

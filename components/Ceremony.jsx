@@ -42,7 +42,7 @@ export default function CeremonyCard() {
   const opener = useMemo(() => {
     let first = null, firstDate = null
     for (const g of games) {
-      const d = parseMatchDate(g.local_date)
+      const d = parseMatchDate(g.local_date, g.stadium_id)
       if (d && (!firstDate || d < firstDate)) { firstDate = d; first = g }
     }
     return { date: firstDate, stadium: first ? stadiumsMap?.[first.stadium_id] : null }

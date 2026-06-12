@@ -39,7 +39,7 @@ export default function HeroMatch({ game, homeTeam, awayTeam, onClick }) {
   const status = matchStatus(game)
   const hIso   = homeTeam?.iso2 ?? ''
   const aIso   = awayTeam?.iso2 ?? ''
-  const date   = parseMatchDate(game?.local_date)
+  const date   = parseMatchDate(game?.local_date, game?.stadium_id)
 
   // Dynamic squads (TheSportsDB) cover teams missing from the curated file
   const [dynRosters, setDynRosters] = useState({ home: [], away: [] })

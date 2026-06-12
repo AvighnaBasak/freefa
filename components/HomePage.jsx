@@ -36,8 +36,8 @@ export default function HomePage() {
       const sa = matchStatus(a), sb = matchStatus(b)
       const order = { live: 0, upcoming: 1, finished: 2 }
       if (order[sa] !== order[sb]) return order[sa] - order[sb]
-      const da = parseMatchDate(a.local_date)?.getTime() ?? 0
-      const db = parseMatchDate(b.local_date)?.getTime() ?? 0
+      const da = parseMatchDate(a.local_date, a.stadium_id)?.getTime() ?? 0
+      const db = parseMatchDate(b.local_date, b.stadium_id)?.getTime() ?? 0
       return da - db
     })
   }, [games])
@@ -52,11 +52,11 @@ export default function HomePage() {
     const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
 
     const todayGames = restGames.filter(g => {
-      const d = parseMatchDate(g.local_date)
+      const d = parseMatchDate(g.local_date, g.stadium_id)
       return d && d >= today && d < tomorrow
     })
     const upcoming = restGames.filter(g => {
-      const d = parseMatchDate(g.local_date)
+      const d = parseMatchDate(g.local_date, g.stadium_id)
       return d && d >= tomorrow
     }).slice(0, 8 - todayGames.length)
 
@@ -65,7 +65,7 @@ export default function HomePage() {
 
   const liveCnt  = games.filter(g => matchStatus(g) === 'live').length
   const todayCnt = games.filter(g => {
-    const d = parseMatchDate(g.local_date)
+    const d = parseMatchDate(g.local_date, g.stadium_id)
     if (!d) return false
     const today = new Date(); today.setHours(0,0,0,0)
     const tom = new Date(today); tom.setDate(tom.getDate()+1)

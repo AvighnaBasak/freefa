@@ -77,7 +77,7 @@ export async function findCeremonyMatch() {
 
 // ── worldcup26.ir (via Next.js rewrite proxy) ─────────────
 export async function getWCGames() {
-  const data = await fetchCached('/worldcup-api/get/games', 20000)
+  const data = await fetchCached('/worldcup-api/get/games', 12000)
   return data?.games ?? []
 }
 export async function getWCTeams() {
@@ -91,6 +91,81 @@ export async function getWCGroups() {
 export async function getWCStadiums() {
   const data = await fetchCached('/worldcup-api/get/stadiums', 300000)
   return data?.stadiums ?? []
+}
+
+// ── Live scores from TheSportsDB (free) ───────────────────
+// worldcup26.ir's schedule/teams are reliable but its live in-play feed lags
+// badly (matches sit on "notstarted 0-0" well after kickoff). TheSportsDB
+// carries accurate live scores + status for the FIFA World Cup, so we overlay
+// those onto the schedule, joined by exact kickoff time (UTC).
+const WC_SDB_LEAGUE = 4429
+const WC_SDB_SEASON = '2026'
+const WC_SDB_ROUNDS = [1, 2, 3] // group-stage matchdays (72 matches)
+
+function sdbStatusToElapsed(s) {
+  const up = String(s ?? '').trim().toUpperCase()
+  if (['FT', 'AET', 'PEN', 'MATCH FINISHED', 'AWARDED', 'FINISHED'].includes(up)) return 'finished'
+  if (['NS', 'NOT STARTED', '', 'TBD', 'POSTP', 'CANC'].includes(up)) return 'notstarted'
+  return String(s).trim() // 1H / 2H / HT / ET / LIVE / minute → live
+}
+
+// Map keyed by "YYYY-MM-DDTHH:MM" (UTC kickoff) → live score record
+export async function getWC2026LiveScores() {
+  const urls = [
+    ...WC_SDB_ROUNDS.map(r => `https://www.thesportsdb.com/api/v1/json/123/eventsround.php?id=${WC_SDB_LEAGUE}&r=${r}&s=${WC_SDB_SEASON}`),
+    `https://www.thesportsdb.com/api/v1/json/123/eventsseason.php?id=${WC_SDB_LEAGUE}&s=${WC_SDB_SEASON}`, // catches knockouts as scheduled
+  ]
+  const lists = await Promise.all(urls.map(u =>
+    fetchCached(u, 12000).then(d => d?.events).catch(() => null)
+  ))
+  const map = new Map()
+  for (const events of lists) {
+    for (const e of events ?? []) {
+      const ts = (e.strTimestamp || `${e.dateEvent}T${e.strTime || '00:00:00'}`).slice(0, 16)
+      if (!ts || ts.length < 16) continue
+      map.set(ts, {
+        home: e.strHomeTeam, away: e.strAwayTeam,
+        hs: e.intHomeScore == null ? null : Number(e.intHomeScore),
+        as: e.intAwayScore == null ? null : Number(e.intAwayScore),
+        elapsed: sdbStatusToElapsed(e.strStatus),
+      })
+    }
+  }
+  return map
+}
+
+// Loose national-team name comparison across the two feeds
+function sameNation(a, b) {
+  // strip accents via NFD (combining marks land in U+0300–U+036F), then keep a–z0–9
+  const n = s => String(s ?? '').toLowerCase().normalize('NFD')
+    .split('').filter(c => { const k = c.charCodeAt(0); return !(k >= 0x300 && k <= 0x36f) }).join('')
+    .replace(/[^a-z0-9]/g, '')
+  const x = n(a), y = n(b)
+  if (!x || !y) return false
+  return x === y || x.includes(y) || y.includes(x)
+}
+
+// Overlay TheSportsDB live scores/status onto worldcup26.ir games. Names for
+// scorers stay from worldcup26 (TheSportsDB free tier omits goal details).
+export function applyLiveScores(games, teamsMap, liveMap) {
+  if (!liveMap?.size) return games
+  return games.map(game => {
+    const ko = parseMatchDate(game.local_date, game.stadium_id)
+    if (!ko) return game
+    const rec = liveMap.get(ko.toISOString().slice(0, 16))
+    if (!rec || rec.elapsed === 'notstarted') return game
+    const homeName = teamsMap?.[game.home_team_id]?.name_en
+    const swapped = !sameNation(homeName, rec.home) && sameNation(homeName, rec.away)
+    const hs = swapped ? rec.as : rec.hs
+    const as = swapped ? rec.hs : rec.as
+    return {
+      ...game,
+      home_score: hs ?? game.home_score,
+      away_score: as ?? game.away_score,
+      time_elapsed: rec.elapsed,
+      finished: rec.elapsed === 'finished' ? 'TRUE' : game.finished,
+    }
+  })
 }
 
 // ── helpers ───────────────────────────────────────────────
@@ -186,25 +261,54 @@ export async function getSportsDBTeamRoster(teamName) {
   }
 }
 
+// worldcup26.ir reports each match's kickoff in its VENUE local time. The
+// tournament (11 Jun – 19 Jul 2026) sits entirely inside US/Canada DST, and
+// Mexico runs no DST, so each host city has a single fixed UTC offset for the
+// whole event. Map by stadium id → offset (minutes from UTC).
+export const STADIUM_TZ_OFFSET = {
+  1: -360, 2: -360, 3: -360,                       // Mexico City, Guadalajara, Monterrey (CST)
+  4: -300, 5: -300, 6: -300,                       // Dallas, Houston, Kansas City (CDT)
+  7: -240, 8: -240, 9: -240, 10: -240, 11: -240, 12: -240, // Atlanta, Miami, Boston, Philadelphia, NY/NJ, Toronto (EDT)
+  13: -420, 14: -420, 15: -420, 16: -420,          // Vancouver, Seattle, SF Bay Area, Los Angeles (PDT)
+}
+// How long after kickoff we still treat a match as "live" if the feed's
+// status field hasn't flipped yet (covers feed lag). ~match + stoppage + half-time.
+const LIVE_WINDOW_MS = 140 * 60 * 1000
+
+// Parse "MM/DD/YYYY HH:MM" (venue local) into an absolute instant, so every
+// display via toLocale* renders in the viewer's own timezone.
+export function parseMatchDate(localDate, stadiumId) {
+  if (!localDate) return null
+  try {
+    const [datePart, timePart] = localDate.split(' ')
+    const [mm, dd, yyyy] = datePart.split('/').map(Number)
+    const [HH, MM] = (timePart ?? '00:00').split(':').map(Number)
+    const off = STADIUM_TZ_OFFSET[stadiumId]
+    if (off == null) {
+      // Unknown venue — fall back to the viewer's local time (legacy behaviour)
+      return new Date(yyyy, mm - 1, dd, HH, MM)
+    }
+    return new Date(Date.UTC(yyyy, mm - 1, dd, HH, MM) - off * 60000)
+  } catch {
+    return null
+  }
+}
+
 export function matchStatus(game) {
   if (!game) return 'upcoming'
   const fin = String(game.finished).toUpperCase() === 'TRUE'
   const t = String(game.time_elapsed ?? '').toLowerCase().trim()
   if (fin || t === 'fulltime' || t === 'ft') return 'finished'
-  if (!t || t === 'notstarted' || t === 'not started') return 'upcoming'
-  return 'live'
-}
-
-export function parseMatchDate(localDate) {
-  if (!localDate) return null
-  // format: "06/11/2026 13:00"
-  try {
-    const [datePart, timePart] = localDate.split(' ')
-    const [mm, dd, yyyy] = datePart.split('/')
-    return new Date(`${yyyy}-${mm}-${dd}T${timePart}:00`)
-  } catch {
-    return null
+  // Feed reports an in-play marker (minute, "HT", etc.) — definitely live
+  if (t && t !== 'notstarted' && t !== 'not started') return 'live'
+  // Feed still says not started: trust the schedule so a match that has
+  // clearly kicked off isn't stuck on "upcoming" while the feed catches up.
+  const ko = parseMatchDate(game.local_date, game.stadium_id)
+  if (ko) {
+    const now = Date.now(), start = ko.getTime()
+    if (now >= start) return now < start + LIVE_WINDOW_MS ? 'live' : 'finished'
   }
+  return 'upcoming'
 }
 
 // Parse a scorers string like "Mbappé 23', Giroud 45+2'" into entries
