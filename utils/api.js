@@ -190,13 +190,21 @@ export async function getWikipediaImage(slug) {
 // fanart/banner = wide rectangular action shots (hero backgrounds)
 // cutout = transparent full-body PNG, thumb = square headshot
 const NO_IMAGES = { cutout: null, thumb: null, fanart: null, banner: null, render: null }
+async function sdbPlayerLookup(name) {
+  const q = encodeURIComponent(name.replace(/ /g, '_'))
+  const data = await fetchCached(`https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${q}`, 3600000)
+  return data?.player?.[0] ?? null
+}
 export async function getSportsDBPlayerImages(playerName) {
   if (!playerName) return NO_IMAGES
   try {
-    const q = encodeURIComponent(playerName.replace(/ /g, '_'))
-    const url = `https://www.thesportsdb.com/api/v1/json/123/searchplayers.php?p=${q}`
-    const data = await fetchCached(url, 3600000)
-    const p = data?.player?.[0]
+    let p = await sdbPlayerLookup(playerName)
+    // Scorer feeds abbreviate first names ("U. Quiñones") — retry on the
+    // surname alone so the headshot still resolves.
+    if (!p && /^[A-Z]\.?(\s|\.).+/.test(playerName)) {
+      const surname = playerName.replace(/^[A-Z]\.?[A-Z]?\.?\s*/, '').trim()
+      if (surname && surname !== playerName) p = await sdbPlayerLookup(surname)
+    }
     if (!p) return NO_IMAGES
     return {
       cutout: p.strCutout || null,
@@ -311,12 +319,23 @@ export function matchStatus(game) {
   return 'upcoming'
 }
 
-// Parse a scorers string like "Mbappé 23', Giroud 45+2'" into entries
+// Parse a scorers field into clean { name, minute } entries.
+// worldcup26.ir returns a Postgres array literal with smart quotes, e.g.
+//   {"I.B. Hwang 67'","H.G. Oh 80'"}
+// so strip the braces/quotes before splitting.
 export function parseScorers(raw) {
   if (!raw) return []
-  const str = String(raw).trim()
+  let str = String(raw).trim()
   if (!str || str.toLowerCase() === 'null') return []
-  return str.split(/[,;]/).map(s => s.trim()).filter(Boolean).map(entry => {
+  str = str
+    .replace(/‘|’/g, "'")   // smart single quotes → '
+    .replace(/“|”/g, '"')   // smart double quotes → "
+    .replace(/^\{|\}$/g, '')          // drop the array braces
+  // split on the quoted-entry boundary first, then any stray comma/semicolon
+  const entries = str.split(/"\s*,\s*"|[,;]/)
+    .map(s => s.replace(/["{}]/g, '').trim())
+    .filter(Boolean)
+  return entries.map(entry => {
     const minuteMatch = entry.match(/(\d+(?:\+\d+)?)\s*['′]?\s*$/)
     const minute = minuteMatch ? minuteMatch[1] : null
     const name = entry.replace(/\(?\d+(?:\+\d+)?\s*['′]?\)?\s*$/, '').replace(/[()]/g, '').trim()

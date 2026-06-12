@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { getFlagUrl, matchStatus, parseMatchDate, getSportsDBPlayerImages, getSportsDBTeamImages, getSportsDBTeamRoster, getFootballMatches, getLiveMatches, getTodayMatches, findStreamedMatch, guessedMatchSources, playerGoalsFromGames } from '@/utils/api'
+import { getFlagUrl, matchStatus, parseMatchDate, parseScorers, getSportsDBPlayerImages, getSportsDBTeamImages, getSportsDBTeamRoster, getFootballMatches, getLiveMatches, getTodayMatches, findStreamedMatch, guessedMatchSources, playerGoalsFromGames } from '@/utils/api'
 import { getPlayersForTeam, getStarPlayer } from '@/data/players'
 import { useWC } from './Providers'
 import HeatMap from './HeatMap'
@@ -358,11 +358,16 @@ function TeamBlock({ team, score, scorers, side }) {
         onError={e => { e.target.style.display = 'none' }}/>
       <div className={styles.teamBlockName}>{team?.name_en ?? '—'}</div>
       <div className={styles.teamBlockCode}>{team?.fifa_code ?? ''}</div>
-      {scorers && scorers !== 'null' && (
-        <div className={styles.scorers}>{String(scorers).split(',').map((s, i) => (
-          <span key={i} className={styles.scorer}>{s.trim()}</span>
-        ))}</div>
-      )}
+      {(() => {
+        const list = parseScorers(scorers)
+        return list.length ? (
+          <div className={styles.scorers}>{list.map((s, i) => (
+            <span key={i} className={styles.scorer}>
+              {s.name}{s.minute ? ` ${s.minute}'` : ''}
+            </span>
+          ))}</div>
+        ) : null
+      })()}
     </div>
   )
 }

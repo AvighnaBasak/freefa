@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { getWCGames, getWCTeams, getWCGroups, getWCStadiums, getWC2026LiveScores, applyLiveScores, matchStatus } from '@/utils/api'
+import { getWCGames, getWCTeams, getWCGroups, getWCStadiums, matchStatus } from '@/utils/api'
 import MatchDetail from './MatchDetail'
 
 const WCCtx = createContext(null)
@@ -17,16 +17,14 @@ export default function Providers({ children }) {
 
   const load = useCallback(async () => {
     try {
-      const [t, g, gr, st, live] = await Promise.all([
+      const [t, g, gr, st] = await Promise.all([
         getWCTeams(), getWCGames(), getWCGroups(), getWCStadiums(),
-        getWC2026LiveScores().catch(() => new Map()),
       ])
       setTeams(t)
       const m = {}
       t.forEach(tm => { m[tm.id] = tm })
       setTeamsMap(m)
-      // Overlay accurate live scores/status (TheSportsDB) on the schedule
-      setGames(applyLiveScores(g, m, live))
+      setGames(g)
       setGroups(gr)
       const sm = {}
       gr.forEach(group => {

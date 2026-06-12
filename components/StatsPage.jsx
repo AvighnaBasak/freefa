@@ -139,7 +139,7 @@ function Podium({ scorers }) {
             </span>
             <div className={styles.podiumStep}>
               <span className={styles.podiumRank}>{idx + 1}</span>
-              <span className={styles.podiumGoals}>{p.goals} goals</span>
+              <span className={styles.podiumGoals}>{p.goals} goal{p.goals !== 1 ? 's' : ''}</span>
             </div>
           </div>
         )
